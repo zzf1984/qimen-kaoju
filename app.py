@@ -97,6 +97,7 @@ def calculate_v43_core(y, m, d, h, mi, cal_mode, method, manual_conf=None):
         star_tar = [k for k,v in earth.items() if v == target_stem][0]
         x_ref, s_ref = (2 if xun_p == 5 else xun_p), (2 if star_tar == 5 else star_tar)
         shift = (P_8.index(s_ref) - P_8.index(x_ref)) % 8
+        
         sky_s = {p: earth[P_8[(P_8.index(p)-shift)%8]] for p in P_8}
         sky_star = {p: STAR_ORIGIN[P_8[(P_8.index(p)-shift)%8]] for p in P_8}
         sky_s[5], sky_star[5] = earth[5], "天禽"
@@ -122,9 +123,9 @@ def calculate_v43_core(y, m, d, h, mi, cal_mode, method, manual_conf=None):
     except Exception as e: return f"ERROR: {str(e)}"
 
 # ============================================================
-# 第三部分：界面展示模塊 (修復版)
+# 第三部分：界面展示模塊
 # ============================================================
-st.set_page_config(layout="wide", page_title="堅奇門·V43 旗艦工作站", page_icon="🧮")
+st.set_page_config(layout="wide", page_title="堅奇門·考據旗艦工作站", page_icon="🧮")
 
 def sync_now():
     now = pdlm.now(tz='Asia/Shanghai')
@@ -135,7 +136,7 @@ if 'y_v' not in st.session_state: sync_now()
 
 tab_pan, tab_bazi, tab_search = st.tabs(['🔮 專業考據排盤', '🔍 八字精確反推', '🔎 格局全局搜索'])
 
-# --- Tab 1: 排盤 (恢復手動功能) ---
+# --- Tab 1: 排盤 ---
 with tab_pan:
     cs, cm = st.columns([1, 3])
     with cs:
@@ -169,19 +170,18 @@ with tab_pan:
             ak = q['ak']
             st.caption(f"核對：旬首 {q['shou']} | 年空:{ak['年空']} | 月空:{ak['月空']} | 日空:{ak['日空']} | 時空:{ak['時空']}")
 
-# --- Tab 2: 八字反推 (恢復高效拆分選擇) ---
+# --- Tab 2: 八字反推 ---
 with tab_bazi:
     st.header("🔍 八字干支反推日期")
     c1, c2, c3, c4 = st.columns(4)
-    y_g, y_z = c1.selectbox("年干", GAN), c1.selectbox("年支", ZHI)
-    m_g, m_z = c2.selectbox("月干", GAN), c2.selectbox("月支", ZHI)
-    d_g, d_z = c3.selectbox("日干", GAN), c3.selectbox("日支", ZHI)
-    t_g, t_z = c4.selectbox("時干", GAN), c4.selectbox("時支", ZHI)
-    
-    sy_b, ey_b = st.number_input("搜尋起年", -2000, 3000, 1900), st.number_input("搜尋終年", -2000, 3000, 2030)
+    ty_g, ty_z = c1.selectbox("年干", GAN), c1.selectbox("年支", ZHI)
+    tm_g, tm_z = c2.selectbox("月干", GAN), c2.selectbox("月支", ZHI)
+    td_g, td_z = c3.selectbox("日干", GAN), c3.selectbox("日支", ZHI)
+    tt_g, tt_z = c4.selectbox("時干", GAN), c4.selectbox("時支", ZHI)
+    sy_b, ey_b = st.number_input("搜尋起年", -2000, 3000, 1900, key="syb"), st.number_input("搜尋終年", -2000, 3000, 2030, key="eyb")
     
     if st.button("🚀 開始全量反推"):
-        target = [y_g+y_z, m_g+m_z, d_g+d_z, t_g+t_z]
+        target = [ty_g+ty_z, tm_g+tm_z, td_g+td_z, tt_g+tt_z]
         found = []
         for cy in range(sy_b, ey_b + 1):
             if Solar.fromYmd(cy, 6, 1).getLunar().getYearInGanZhi() == target[0]:
@@ -197,27 +197,28 @@ with tab_bazi:
         if found: st.success(f"找到 {len(found)} 個日期"); [st.write(f) for f in found]
         else: st.warning("未找到匹配。")
 
-# --- Tab 3: 全局格局檢索 (修復邏輯死結) ---
+# --- Tab 3: 全局格局檢索 (補全地盤干) ---
 with tab_search:
     st.header("🔎 奇門格局大數據檢索")
     
     with st.expander("🛠️ 1. 搜索時間跨度", expanded=True):
         c_s1, c_s2 = st.columns(2)
         with c_s1:
-            sy_s, sm_s, sd_s = st.number_input("開始年", -2000, 3000, 2024), st.number_input("開始月", 1, 12, 1), st.number_input("開始日", 1, 31, 1)
+            sy_s, sm_s, sd_s = st.number_input("開始年", -2000, 3000, 2024, key="sys"), st.number_input("開始月", 1, 12, 1, key="sms"), st.number_input("開始日", 1, 31, 1, key="sds")
         with c_s2:
-            ey_s, em_s, ed_s = st.number_input("結束年", -2000, 3000, 2024), st.number_input("結束月", 1, 12, 12), st.number_input("結束日", 1, 31, 31)
+            ey_s, em_s, ed_s = st.number_input("結束年", -2000, 3000, 2025, key="eys"), st.number_input("結束月", 1, 12, 12, key="ems"), st.number_input("結束日", 1, 31, 31, key="eds")
 
     with st.expander("🎯 2. 目標宮位與要素 (多選)", expanded=True):
         target_palaces = st.multiselect("目標宮位 (不選代表全局)", options=list(range(1, 10)), format_func=lambda x: PALACE_NAMES[x-1], default=[1,2,3,4,6,7,8,9])
-        c3, c4, c5, c6, c7 = st.columns(5)
+        c3, c4, c5, c6, c7, c8 = st.columns(6)
         sg_s = c3.multiselect("神盤", GODS_YANG + ["白虎", "玄武"])
         st_s = c4.multiselect("天盤星", list(STAR_ORIGIN.values()))
         ts_s = c5.multiselect("天盤干", GAN)
-        dm_s = c6.multiselect("人盤門", [d for d in DOOR_ORDER if d != "-"])
-        ag_s = c7.multiselect("人盤暗干", GAN)
+        de_s = c6.multiselect("地盤干", GAN) # <--- 新增地盤干搜索項
+        dm_s = c7.multiselect("人盤門", [d for d in DOOR_ORDER if d != "-"])
+        ag_s = c8.multiselect("人盤暗干", GAN)
 
-    with st.expander("🛡️ 3. 屏蔽過慮 (預設關閉，確保能搜出結果)", expanded=True):
+    with st.expander("🛡️ 3. 屏蔽過慮", expanded=True):
         f1, f2, f3 = st.columns(3)
         h_mu = f1.checkbox("屏蔽入墓 (天盤干)")
         h_po = f1.checkbox("屏蔽門迫")
@@ -227,7 +228,7 @@ with tab_search:
         v_day = f3.checkbox("屏蔽日空")
         v_hour = f3.checkbox("屏蔽時空")
 
-    if st.button("🚀 執行深度檢索"):
+    if st.button("🚀 執行深度格局檢索"):
         results = []
         start_dt = datetime.date(sy_s, sm_s, sd_s)
         end_dt = datetime.date(ey_s, em_s, ed_s)
@@ -245,18 +246,19 @@ with tab_search:
                     if isinstance(qs, str): continue
                     
                     for p_idx in target_palaces:
-                        # 提取數據
+                        # 提取宮位參數
                         curr_god = qs['god'].get(p_idx, "-")
                         curr_star = qs['sky_star'].get(p_idx, "-")
                         curr_sky_gan = qs['sky_s'].get(p_idx, "-")
+                        curr_earth_gan = qs['earth'].get(p_idx, "-") # <--- 獲取地盤干
                         curr_door = qs['human'].get(p_idx, "-")
                         curr_hidden = qs['hidden'].get(p_idx, "-")
-                        curr_earth = qs['earth'].get(p_idx, "-")
                         
-                        # A. 正向匹配
+                        # A. 正向要素匹配 (含地盤干)
                         if sg_s and curr_god not in sg_s: continue
                         if st_s and curr_star not in st_s: continue
                         if ts_s and curr_sky_gan not in ts_s: continue
+                        if de_s and curr_earth_gan not in de_s: continue # <--- 地盤干過濾
                         if dm_s and curr_door not in dm_s: continue
                         if ag_s and curr_hidden not in ag_s: continue
                         
@@ -264,14 +266,12 @@ with tab_search:
                         fail = False
                         if h_mu and curr_sky_gan in MU_RULES and p_idx in MU_RULES[curr_sky_gan]: fail = True
                         if h_po and curr_door in PO_RULES and p_idx in PO_RULES[curr_door]: fail = True
-                        if h_jx and curr_earth in JIXING_RULES and p_idx in JIXING_RULES[curr_earth]: fail = True
+                        if h_jx and curr_earth_gan in JIXING_RULES and p_idx in JIXING_RULES[curr_earth_gan]: fail = True
                         
-                        # C. 修復後的空亡邏輯
-                        def check_kong(kong_list, p_idx):
-                            palace_zhis = PALACE_ZHI.get(p_idx, [])
-                            for z in palace_zhis:
-                                if z in kong_list: return True
-                            return False
+                        # C. 空亡邏輯
+                        def check_kong(kong_list, pid):
+                            palace_zhis = PALACE_ZHI.get(pid, [])
+                            return any(z in kong_list for z in palace_zhis)
 
                         if v_year and check_kong(qs['ak']['年空'], p_idx): fail = True
                         if v_month and check_kong(qs['ak']['月空'], p_idx): fail = True
@@ -279,11 +279,11 @@ with tab_search:
                         if v_hour and check_kong(qs['ak']['時空'], p_idx): fail = True
                         
                         if not fail:
-                            res_str = f"✅ {qs['solar'].toFullString()} | **{PALACE_NAMES[p_idx-1]}** | {curr_god}+{curr_star}{curr_sky_gan}+{curr_door}({curr_hidden})"
+                            res_str = f"✅ {qs['solar'].toFullString()} | **{PALACE_NAMES[p_idx-1]}** | {curr_god}+{curr_star}{curr_sky_gan}+{curr_door}({curr_hidden}) / 地:{curr_earth_gan}"
                             results.append(res_str)
             
             if results:
                 st.success(f"掃描完畢！共找到 {len(results)} 個符合條件的時刻。")
                 for r in results: st.write(r)
             else:
-                st.warning("在此範圍內未找到符合條件的格局。請嘗試放寬屏蔽條件或扩大日期范围。")
+                st.warning("在此範圍內未找到符合條件的格局。請嘗試放寬屏蔽條件或擴大日期範圍。")
