@@ -2,8 +2,8 @@ import streamlit as st
 from lunar_python import Solar, Lunar
 import datetime
 
-# ================= 1. 核心常量与规则 =================
-st.set_page_config(page_title="奇门·旗舰完满版", layout="wide")
+# ================= 1. 核心常量与规则 (完全继承实测版) =================
+st.set_page_config(page_title="奇门遁甲·旗舰完满考据版", layout="wide")
 
 GAN, ZHI = list("甲乙丙丁戊己庚辛壬癸"), list("子丑寅卯辰巳午未申酉戌亥")
 JZ = [GAN[x % 10] + ZHI[x % 12] for x in range(60)]
@@ -35,8 +35,8 @@ BRANCH_TO_PID = {
     '午': 9, '未': 2, '申': 2, '酉': 7, '戌': 6, '亥': 6
 }
 
-# ================= 2. 核心排盘引擎 =================
-def calculate_engine(y, m, d, h, mi=0, cal_mode="公曆", manual=None):
+# ================= 2. 核心排盘引擎 (完全继承实测版) =================
+def calculate_engine(y, m, d, h, mi=0, cal_mode="公曆", method="拆補法", manual=None):
     if cal_mode == "公曆":
         solar = Solar.fromYmdHms(y, m, d, h, mi, 0); lunar = solar.getLunar()
     else:
@@ -80,73 +80,144 @@ def calculate_engine(y, m, d, h, mi=0, cal_mode="公曆", manual=None):
     
     return {"lunar":lunar, "gz":[lunar.getYearInGanZhi(), lunar.getMonthInGanZhi(), gz_d, gz_t], "jq":jq_n, "ju":f"{'陽' if is_yang else '陰'}遁{ju_num}局", "earth":earth, "sky_s":sky_s, "sky_star":sky_star, "god":god_pan, "human":human_pan, "hidden":hidden, "shou":hx, "zf":STAR_ORIGIN[x_ref], "zs":DOOR_ORIGIN[x_ref], "solar":solar}
 
-# ================= 3. 界面展示 =================
-st.title("奇门遁甲·旗舰完满版")
+# ================= 3. Streamlit 界面构建 =================
+st.sidebar.title("⚙️ 核心参数")
+cal_mode = st.sidebar.radio("歷法選擇", ["公曆", "農曆"], horizontal=True)
+col_d1, col_d2 = st.sidebar.columns(2)
+date_input = col_d1.date_input("日期", datetime.date.today())
+hour_input = col_d2.selectbox("時辰(小時)", list(range(24)), index=datetime.datetime.now().hour)
+method_input = st.sidebar.selectbox("排盤方法", ["拆補法", "茅山法"])
 
-# --- 側邊欄：設置 ---
-with st.sidebar:
-    st.header("⚙️ 參數設置")
-    cal_mode = st.radio("歷法", ["公曆", "農曆"])
-    date_val = st.date_input("日期", datetime.date.today())
-    hour_val = st.number_input("小時(0-23)", 0, 23, 0)
-    
-    st.divider()
-    manual_on = st.checkbox("手動定局")
-    m_dun = st.selectbox("遁", ["陽", "陰"])
+with st.sidebar.expander("🛠️ 手動定局/考據"):
+    manual_on = st.checkbox("啟用手動定局")
+    m_dun = st.selectbox("遁極", ["陽", "陰"])
     m_ju = st.number_input("局數", 1, 9, 1)
 
-# --- 主界面：排盤 ---
-res = calculate_engine(date_val.year, date_val.month, date_val.day, hour_val, 0, cal_mode, manual={'active':manual_on, 'is_yang':m_dun=="陽", 'ju_num':m_ju})
+# 執行排盤
+res = calculate_engine(date_input.year, date_input.month, date_input.day, hour_input, 0, cal_mode, method_input, manual={'active':manual_on, 'is_yang':m_dun=="陽", 'ju_num':m_ju})
 
-st.subheader(f"🗓️ {res['gz'][0]} {res['gz'][1]} {res['gz'][2]} {res['gz'][3]}")
-st.info(f"✨ {res['jq']} | {res['ju']} | 旬首:{res['shou']} | 值符:{res['zf']} | 值使:{res['zs']} | 空亡:日{res['lunar'].getDayXunKong()} 時{res['lunar'].getTimeXunKong()}")
+# 展示干支頭
+st.markdown(f"### 🗓️ {res['gz'][0]} {res['gz'][1]} {res['gz'][2]} {res['gz'][3]}")
+st.success(f"✨ **{res['jq']}** | **{res['ju']}** | 旬首: **{res['shou']}** | 值符: **{res['zf']}** | 值使: **{res['zs']}**")
+st.warning(f"🈳 空亡: 日 **{res['lunar'].getDayXunKong()}** | 時 **{res['lunar'].getTimeXunKong()}**")
 
-def draw_palace(pid):
+# 九宮格渲染函數
+def render_palace(pid):
     if pid == 5:
-        return f"<div style='text-align:center; padding:20px;'><h1 style='color:black;'>{res['earth'][5]}</h1></div>"
-    
+        return f"<div style='height:140px; display:flex; align-items:center; justify-content:center; border:1px solid #eee; background:#fafafa;'><h1 style='color:#333;'>{res['earth'][5]}</h1></div>"
     idx = pid - 1
     html = f"""
-    <div style="border: 1px solid #ddd; padding: 10px; border-radius: 5px; background-color: white;">
-        <div style="font-size: 10px; color: gray; text-align: right;">{PALACE_NAMES[idx][:2]}</div>
-        <div style="color: red; font-weight: bold; text-align: center;">{res['god'].get(pid, "")}</div>
-        <div style="display: flex; justify-content: space-around; align-items: center;">
-            <span style="font-size: 12px;">{res['sky_star'].get(pid, "")[-1]}</span>
-            <span style="font-size: 24px; color: blue; font-weight: bold;">{res['sky_s'].get(pid, "")}</span>
+    <div style="border: 1px solid #ddd; padding: 10px; border-radius: 8px; background: white; height:140px; position:relative; box-shadow: 2px 2px 5px #f0f0f0;">
+        <div style="font-size: 11px; color: #999; text-align: right;">{PALACE_NAMES[idx][:2]}</div>
+        <div style="color: #e63946; font-weight: bold; text-align: center; font-size: 18px; margin-top:-5px;">{res['god'].get(pid, "")}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 5px 0;">
+            <span style="font-size: 12px; color:#555;">{res['sky_star'].get(pid, "")[-1]}</span>
+            <span style="font-size: 26px; color: #1d3557; font-weight: bold;">{res['sky_s'].get(pid, "")}</span>
         </div>
-        <div style="display: flex; justify-content: space-around; font-size: 14px;">
-            <span style="color: green;">{res['human'].get(pid, "")[:1]}</span>
-            <span style="color: orange;">({res['hidden'].get(pid, "")})</span>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #2a9d8f; font-weight:bold; font-size:16px;">{res['human'].get(pid, "")[:1]}</span>
+            <span style="color: #f4a261; font-size:12px;">({res['hidden'].get(pid, "")})</span>
         </div>
-        <div style="text-align: right; font-weight: bold;">{res['earth'].get(pid, "")}</div>
+        <div style="text-align: right; font-weight: bold; color: #444; font-size:16px; margin-top:2px;">{res['earth'].get(pid, "")}</div>
     </div>
     """
     return html
 
-# 3x3 九宮格佈局
-rows = [[4, 9, 2], [3, 5, 7], [8, 1, 6]]
-for r in rows:
+# 佈局九宮格
+grid_layout = [[4, 9, 2], [3, 5, 7], [8, 1, 6]]
+for row_pids in grid_layout:
     cols = st.columns(3)
-    for i, pid in enumerate(r):
-        cols[i].markdown(draw_palace(pid), unsafe_allow_html=True)
+    for i, pid in enumerate(row_pids):
+        cols[i].markdown(render_palace(pid), unsafe_allow_html=True)
 
 st.divider()
 
-# --- 搜索功能 ---
-st.header("🔎 奇门全量搜索")
-c1, c2, c3 = st.columns(3)
-s_start = c1.date_input("開始日期", datetime.date(2026, 3, 15))
-s_end = c2.date_input("結束日期", datetime.date(2026, 4, 6))
-if st.button("開始考據"):
-    st.write("正在檢索...")
-    curr = s_start
-    found = 0
-    while curr <= s_end:
-        for ch in range(0, 24, 2):
-            # 默認搜索坎一宮
-            qs = calculate_engine(curr.year, curr.month, curr.day, ch)
-            # 這裡可以根據需要添加更複雜的篩選邏輯
-            st.text(f"🎯 {qs['solar'].toFullString()} | 坎一宮")
-            found += 1
-        curr += datetime.timedelta(days=1)
-    st.success(f"檢索完成，找到 {found} 個時辰。")
+# ================= 4. 八字反推與全量搜索 (完美復刻要素) =================
+tab1, tab2 = st.tabs(["🔍 八字干支反推日期", "🔎 奇門全量搜索"])
+
+with tab1:
+    st.write("根據年月日時干支檢索具体公历時間")
+    c1, c2, c3, c4 = st.columns(4)
+    target_y = c1.selectbox("年柱", JZ, index=2)
+    target_m = c2.selectbox("月柱", JZ, index=3)
+    target_d = c3.selectbox("日柱", JZ, index=4)
+    target_t = c4.selectbox("時柱", JZ, index=5)
+    
+    col_r1, col_r2 = st.columns(2)
+    start_y = col_r1.number_input("起年", 1900, 2100, 2026)
+    end_y = col_r2.number_input("止年", 1900, 2100, 2030)
+    
+    if st.button("開始檢索八字"):
+        found_bazi = []
+        for cy in range(start_y, end_y + 1):
+            # 優化：先判斷年是否符合，減少不必要的農曆轉換
+            l_check = Solar.fromYmd(cy, 6, 1).getLunar()
+            if l_check.getYearInGanZhi() == target_y:
+                for cm in range(1, 13):
+                    for cd in range(1, 32):
+                        try:
+                            l2 = Solar.fromYmd(cy, cm, cd).getLunar()
+                            if l2.getMonthInGanZhi() == target_m and l2.getDayInGanZhi() == target_d:
+                                for ch in range(0, 24, 2):
+                                    lt = Solar.fromYmdHms(cy, cm, cd, ch, 0, 0).getLunar()
+                                    if lt.getTimeInGanZhi() == target_t:
+                                        found_bazi.append(lt.getSolar().toFullString())
+                        except: continue
+        if found_bazi:
+            for item in found_bazi: st.success(f"✅ {item}")
+        else: st.error("未找到符合條件的日期。")
+
+with tab2:
+    st.write("設定宮位要素篩選特定格局時間")
+    col_s1, col_s2 = st.columns(2)
+    s_start = col_s1.date_input("開始檢索日期", datetime.date(2026, 3, 15))
+    s_end = col_s2.date_input("結束檢索日期", datetime.date(2026, 4, 6))
+    
+    st.markdown("#### 🎯 多選要素設置")
+    sel_palaces = st.multiselect("宮位選擇(不選默認全盤)", PALACE_NAMES)
+    sel_gods = st.multiselect("神盤篩選", GODS_YANG + ["白虎", "玄武"])
+    sel_stars = st.multiselect("天星篩選", list(STAR_ORIGIN.values()))
+    sel_doors = st.multiselect("人門篩選", [d for d in DOOR_ORDER if d != "-"] )
+    sel_stems = st.multiselect("天干篩選", GAN)
+    
+    st.markdown("#### 🚫 屏蔽條件")
+    cb_col = st.columns(4)
+    f_mu = cb_col[0].checkbox("屏蔽入墓")
+    f_po = cb_col[1].checkbox("屏蔽門迫")
+    f_jx = cb_col[2].checkbox("屏蔽擊刑")
+    f_tk = cb_col[3].checkbox("屏蔽時空", value=True)
+    
+    if st.button("開始大數據考據"):
+        st.write("正在分析時間線，請稍候...")
+        results = []
+        target_pids = [PALACE_NAMES.index(p)+1 for p in sel_palaces] if sel_palaces else [1,2,3,4,6,7,8,9]
+        
+        curr_d = s_start
+        while curr_d <= s_end:
+            for ch in range(0, 24, 2):
+                qs = calculate_engine(curr_d.year, curr_d.month, curr_d.day, ch, method=method_input)
+                for pid in target_pids:
+                    # 要素匹配
+                    if sel_gods and qs['god'].get(pid) not in sel_gods: continue
+                    if sel_stars and qs['sky_star'].get(pid) not in sel_stars: continue
+                    if sel_doors and qs['human'].get(pid) not in sel_doors: continue
+                    if sel_stems and qs['sky_s'].get(pid) not in sel_stems: continue
+                    
+                    # 屏蔽條件匹配
+                    fail = False
+                    if f_mu and qs['sky_s'].get(pid) in MU_RULES and pid in MU_RULES[qs['sky_s'].get(pid)]: fail = True
+                    if not fail and f_po and qs['human'].get(pid) in PO_RULES and pid in PO_RULES[qs['human'].get(pid)]: fail = True
+                    if not fail and f_jx and qs['earth'].get(pid) in JIXING_RULES and pid in JIXING_RULES[qs['earth'].get(pid)]: fail = True
+                    if not fail and f_tk:
+                        xk_list = list(qs['lunar'].getTimeXunKong())
+                        for branch in xk_list:
+                            if BRANCH_TO_PID.get(branch) == pid: fail = True; break
+                    
+                    if not fail:
+                        results.append(f"🎯 {qs['solar'].toFullString()} | {PALACE_NAMES[pid-1]}")
+            curr_d += datetime.timedelta(days=1)
+        
+        if results:
+            st.success(f"共找到 {len(results)} 個符合格局的時間點：")
+            for r in results: st.text(r)
+        else: st.error("在該時間段內未找到符合條件的格局。")
